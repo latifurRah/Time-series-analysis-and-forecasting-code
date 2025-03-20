@@ -1,0 +1,378 @@
+---
+title: "Time Series lab"
+author: "Latifur"
+date: "2024-01-30"
+output:
+  html_document: default
+  word_document: default
+---
+Problem: -01
+```{r}
+
+#Time series analysis
+#-Generating random number from normal dist.
+x=rnorm(100,0,1)
+
+#help(ts)
+
+#Creating a time series 
+quater_ts=ts(data = x,start = 1995,frequency = 4)
+
+#---Creating time series plot for quaterly  data---#
+plot(quater_ts,col=4,ylab="Frequency",
+     xlab="Year",main="Quaterly Time series Plot")
+
+# Comment:Those the quarterly and monthly data are the stationary. cause data form normal distribution, Have equal mean and variance.
+
+#Creating time series plot for monthly data
+monthly_ts=ts(data = x,start = 1995,frequency = 12)
+
+#--------------Plot--------------------
+plot(monthly_ts,col="red",main="Monthly Time series data")
+
+#Comment: The plot show data are stationary because sample draw from normal distribution.
+
+#-Detection of tend and get a stationary time series 
+# install.packages("fpp")
+library(fpp)
+library(forecast)
+data(ausbeer)
+View(ausbeer)
+ausbeer
+
+beer.ts=window(ausbeer,start=1956,end=1975)
+plot(as.ts(beer.ts),col=5,lwd=2)
+
+# Upper tend data
+#Creating a moving average that will be close to trend
+
+beer.trend=ma(beer.ts,order = 4,centre = T)
+
+#Plot trend a MA together
+plot(as.ts(beer.ts),col="red",ylab="Value of Beer",main="Beer sells")
+lines(beer.trend,col=6,lwd=1.5)
+
+#Removing the trend from the time series
+beer.detrend=beer.ts-beer.trend
+
+#Plot the detrend data
+
+plot(as.ts(beer.detrend),col=7,
+     main="Australia Beer Production",ylab="Values",lwd=2)
+
+
+
+# Those the quarterly and monthly data are the stationary 
+# cause data form normal distribution ,Have equal mean and
+# variance.
+
+#But in real life problem all data sets are not stationary
+#In this situation we have to convert data into a stationary
+#data
+
+
+#-Detection of tend and get a stationary time series 
+# install.packages("fpp")
+library(fpp)
+data(ausbeer)
+View(ausbeer)
+ausbeer
+
+library(readxl)
+df<- read_excel("GDP of bangladesh.xlsx")
+View(df)
+# gdp.ts=window(df,start = 1980,end = 2020)
+gdp=ts(df)
+plot((gdp))
+
+
+
+
+
+
+```
+
+
+Problem: -02
+
+```{r}
+data("Airpassenger")
+AirPassengers
+
+#Understanding and Preparing data
+boxplot(AirPassengers~cycle(AirPassengers))
+plot(AirPassengers,main="AirPassengers",ylab="Number of Passengers",
+       col="Blue",lwd=1.5)
+
+# upward and seasonality  Trend data
+abline(lm(AirPassengers~time(AirPassengers)),lwd=1.3,col="red")
+
+#Make it stationary
+# do variance constant 
+plot(diff(log(AirPassengers)),col="red",lwd=2,ylab="Passengers",main="AirPassengers data")
+
+#After stationary we can fit ARIMA model
+# we need tseries
+library(tseries)
+# ARIMA(P=Order of AR,D=differencing order,
+# order of MA)
+#Selecting the value of p(AR)
+acf(AirPassengers)
+acf(diff(log(AirPassengers)))
+#Here the number of line cross or touch the blue line is no.
+# of AR .we avoid the for zero value and the data
+# is sessional that's why q=1 
+
+# Selecting the value of p
+pacf(diff(log(AirPassengers)))
+
+# Fitting an ARIMA(0,1,1)
+# help(arima)
+
+m_fit=arima(log(AirPassengers),order = c(0,1,1),seasonal =list(order=c(0,1,1),period=12))
+
+m_fit
+
+#Forecast for next 10 years
+
+pred=predict(m_fit,n.ahead = 10*12)
+pred
+
+#final predicton
+finalpred=exp(pred$pred)
+ts.plot(AirPassengers,finalpred,log="y",lty=c(1:3),col=c(3,'red'),
+        main="Passengers Predicton",ylab="Number of Passengers")
+#Checking accuracy of the prediction
+train_data=ts(AirPassengers,frequency = 12,start=c(1949,1),end = c(1959,12))
+
+m_fit2=arima(log(train_data),order = c(0,1,1),seasonal =list(order=c(0,1,1),period=12))
+
+m_fit2
+#Predict for one year
+pred2=predict(m_fit2,n.ahead = 1*12)
+pred2
+pred3=exp(pred2$pred)
+pred3
+
+pred_1960=round(pred3,0)
+true_1960=tail(AirPassengers,12)
+df=data.frame(pred_1960,true_1960)
+df
+# The difference between the true value and the predicted value is the smallest
+# so the accuracy of the model is large.
+
+```
+
+
+Problem: -3
+
+```{r}
+
+#---------------lecture-5.3--------------------------
+#Decomposition and modeling 
+#Data Air Passengers
+data("AirPassengers")
+View(AirPassengers)
+AirPassengers
+
+#Preparing the time series data
+AP=ts(AirPassengers,frequency = 12,start = c(1949,1))
+
+#Understanding data
+# Trend(T)
+#Seasonal(S)
+#Cyclical(C)
+#Irregular(I)
+plot(AP,col="green",lwd=1.4,main="Air Passengers",ylab="Numberof Passengers")
+
+#Log-transform to fix-up variation
+AP2=log(AP)
+plot(AP2,lwd=1.2,col="Yellow",
+     main="Air Passengers ",ylab="Number of Passengers") #here we see the variance are same 
+
+#Decompose
+DAP=decompose((AP2))
+DAP$figure
+plot(DAP$figure,
+     type='b',
+     xlab = 'Month',
+     ylab = 'Seasonality Index',
+     col="blue",
+     las=2,
+     main = "AirPassengers",
+     lwd=1.3)
+#Decompose plot 
+plot(DAP)
+
+#ARIMA(p,d,q) model
+library(forecast)
+model_fit=auto.arima(AP2)
+model_fit
+
+#Residual plot
+hist(model_fit$residuals,
+     col='red',
+     main = 'Residual plot',
+     xlab = 'Error',
+     freq=F)
+lines(density(model_fit$residuals),
+                col='blue',lw=3)
+#Forecast for the next 4 years
+pred=forecast(model_fit,4*12)
+library(ggplot2)
+autoplot(pred) #deep blue 80% CI and light blue 95% CI
+
+#Checking accuracy
+accuracy(pred)
+
+ 
+```
+
+Problem: -04
+```{r}
+
+# the a10 dataset, which is supposed to represent monthly
+#anti-diabetic drug subsidy in Australia from 1991 to 2008
+#Visualization of data by ggplot2
+library(fpp)
+library(fpp2)
+library(forecast)
+library(ggplot2)
+# help("autoplot")
+data(a10)
+a10
+#------------------Plotting the dataset--------------------#
+autoplot(a10)+
+  ggtitle("Antidiabetic drug sales")+
+  ylab("$ Million")+
+  xlab("Year")
+
+#Seasonal plot
+ggseasonplot(a10,year.labels = T,year.labels.left = T)+
+    ggtitle("Seasonal Plot: Antidiabetic drug sales")+
+    ylab("$ Million ")+
+    xlab("Year")
+#Polar seasonal plot
+ggseasonplot(a10,polar =T)+
+  ggtitle("Polar Plot: Antidiabetic drug sales")+
+  ylab("$ Million ")+
+  xlab("Year")
+
+#seasonal sub-series plot 
+
+ggsubseriesplot(a10)+
+    ggtitle("Sub-Series plot:Antidiabetic drug sales")+
+    ylab('$ Million')
+
+#Visualizing ausbeer data
+#Total quarterly beer production in Australia (in megalitres) from 1956:Q1 to 2010:Q2.
+data("ausbeer")
+ausbeer
+
+beer2=window(ausbeer,start=1993,end=c(2006,4))
+autoplot(beer2)
+
+#--Simple forecasting methods
+# Average 
+# Naive(work with most recent values)
+# Seasonal Naive
+# Drift
+
+beerfit1=meanf(beer2,h=12)
+beerfit2=rwf(beer2,h=12)
+beerfit3=snaive(beer2,h=12)
+
+#We plot full data set
+autoplot(window(ausbeer,start=1993))+
+    autolayer(beerfit1,series="Mean",PI=F)+
+    autolayer(beerfit2,series="Naive",PI=F)+
+    autolayer(beerfit3,series="Seasonal Naive",PI=F)+
+    xlab("Year")+ylab("Megalitres")+
+    ggtitle("Forecasted quaterly beer production ")+
+    guides(colour=guide_legend(title = "Forecast"))
+#Accuracy 
+beer3=window(ausbeer,start=2008)
+accuracy(beerfit1,beer3)
+accuracy(beerfit2,beer3)
+accuracy(beerfit3,beer3)
+
+
+#Another data
+# Closing stock prices of GOOG from the NASDAQ exchange, for 1000 consecutive trading days
+# between 25 February 2013 and 13 February 2017. Adjusted for splits. goog200 contains the first
+# 200 observations from goog
+goog200
+autoplot(goog200)
+
+#Forecast for next 40 
+googf1=meanf(goog200,h=40)
+googf2=rwf(goog200,h=40)
+googf3=rwf(goog200,drift=T,h=40)
+
+autoplot(subset(goog200,end = 240))+
+  autolayer(googf1,series="Mean",PI=F)+
+  autolayer(googf2,series="Naive",PI=F)+
+  autolayer(googf3,series="Drift",PI=F)+
+  xlab("Day")+ylab("Closing price(us$")+
+  ggtitle("Google Stock Price")+
+  guides(colour=guide_legend(title = "Forecast"))
+autoplot(googf3)
+  
+
+
+
+
+
+
+```
+Problem:-05
+
+```{r}
+#-------------Analyzing and forecasting monthly rainfall of Bangladesh----
+df=read.csv(file.choose(),header = T,sep = ",")
+df
+head(df)
+View(df)
+#Packages
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(forecast)
+
+#Preparing data for analysis
+df1<-filter(df,df$Year>="2007")
+df1=filter(df1,Station=="Rajshahi")
+View(df1)
+
+df2=select(df1,Rainfall)
+df2
+#Convert the value in continuous formate
+
+df2$Rainfall=as.numeric(df2$Rainfall)
+#Convert into a time series data
+
+RD=ts(df2$Rainfall,start = 2007,frequency = 12)
+RD
+
+#Time series Plot
+plot(RD,lwd=1.2,col="green",main="Rainfall in Rajshahi
+     ")
+
+#Decompose
+RDR=decompose(RD)
+plot(RDR)
+
+#Fitting an arima model
+fit_model=auto.arima(RD)
+fit_model
+
+#Forecast
+pred=forecast(fit_model,4*12)
+autoplot(pred,PI=T)+
+  ylim(0,550)
+
+
+```
+
+
+
